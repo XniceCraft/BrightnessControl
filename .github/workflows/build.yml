@@ -14,17 +14,14 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install MinGW
-      uses: egor-tensin/setup-cygwin@v4
-      with:
-        packages: cmake gcc-g++
+      uses: Denzy7/action-mingw@v0.1
 
     - name: Configure with CMake
       run: |
         mkdir build
         cd build
-        cmake ..
+        cmake .. -G "MinGW Makefiles"
 
     - name: Build project
       run: |
-        cd build
         make
