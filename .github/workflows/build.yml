@@ -22,9 +22,9 @@ jobs:
       run: |
         mkdir build
         cd build
-        cmake .. -G "MinGW Makefiles"
+        cmake ..
 
     - name: Build project
       run: |
         cd build
-        mingw32-make
+        make
