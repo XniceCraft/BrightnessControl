@@ -5,9 +5,7 @@
 #include <fileapi.h>
 #include <fstream>
 #include <inicpp.h>
-#include <mutex>
 #include <powrprof.h>
-
 
 #define APP_ICON_RESOURCE 100
 
@@ -16,7 +14,6 @@ HWND hSliderWindow, hSlider, hTextLabel;
 HHOOK hMouseHook;
 HPOWERNOTIFY hPowerNotify;
 bool isVisible = false;
-std::mutex mutex;
 std::string rwPath;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -25,7 +22,6 @@ LRESULT CALLBACK SliderWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam);
 
 bool IsExecutable(const std::string &path) {
-  // Check if the file exists
   DWORD fileAttributes = GetFileAttributes(path.c_str());
   if (fileAttributes == INVALID_FILE_ATTRIBUTES)
     return false;
@@ -34,7 +30,6 @@ bool IsExecutable(const std::string &path) {
   if (pos == std::string::npos || pos != path.length() - 4)
     return false;
 
-  // Attempt to open the file with execute permissions
   HANDLE fileHandle =
       CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
                  NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
@@ -207,13 +202,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     } else if (LOWORD(lParam) == WM_RBUTTONUP)
       showContextMenu(hwnd);
 
-  } else if (uMsg == WM_POWERBROADCAST &&
+  } 
+  else if (uMsg == WM_POWERBROADCAST &&
              (wParam == PBT_APMRESUMEAUTOMATIC ||
               wParam == PBT_APMRESUMESUSPEND ||
-              wParam == PBT_APMPOWERSTATUSCHANGE ||
-              (GUID_CONSOLE_DISPLAY_STATE ==
-                   ((POWERBROADCAST_SETTING *)lParam)->PowerSetting &&
-               ((POWERBROADCAST_SETTING *)lParam)->Data[0] == 1)))
+              wParam == PBT_APMPOWERSTATUSCHANGE))
     changeBrightness();
 
   else if (uMsg == WM_DESTROY || (uMsg == WM_COMMAND && LOWORD(wParam) == 1002))
@@ -259,6 +252,37 @@ LRESULT CALLBACK SliderWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
   case WM_DESTROY:
     PostQuitMessage(0);
     return 0;
+  case WM_NOTIFY: {
+    if (((LPNMHDR)lParam)->hwndFrom == hSlider) {
+      LPNMCUSTOMDRAW nmcd = (LPNMCUSTOMDRAW)lParam;
+
+      switch (nmcd->dwDrawStage) {
+      case CDDS_PREPAINT:
+        return CDRF_NOTIFYITEMDRAW;
+
+      case CDDS_ITEMPREPAINT: {
+        if (nmcd->dwItemSpec == TBCD_THUMB) {
+          HDC hdc = nmcd->hdc;
+          RECT rect = nmcd->rc;
+
+          HBRUSH hBrush = CreateSolidBrush(RGB(0, 122, 204));
+          HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+
+          int cornerRadius = 5;
+          RoundRect(hdc, rect.left, rect.top, rect.right, rect.bottom,
+                    cornerRadius, cornerRadius);
+
+          SelectObject(hdc, hOldBrush);
+          DeleteObject(hBrush);
+
+          return CDRF_SKIPDEFAULT;
+        }
+        break;
+      }
+      }
+    }
+    break;
+  }
   }
   return DefWindowProc(hwnd, uMsg, wParam, lParam);
 }

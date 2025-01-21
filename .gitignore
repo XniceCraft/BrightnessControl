@@ -1,0 +1,4 @@
+config.ini
+.cache
+build
+*.exe
