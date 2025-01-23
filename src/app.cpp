@@ -5,6 +5,7 @@
 #include <fileapi.h>
 #include <fstream>
 #include <inicpp.h>
+#include <minwindef.h>
 #include <powrprof.h>
 
 #define APP_ICON_RESOURCE 100
@@ -154,6 +155,9 @@ void updateText() {
   SetWindowText(hTextLabel, text.c_str());
 }
 
+/**
+ * Change brightness by sending data to RWEveryting
+ */
 void changeBrightness() {
   char tempDirPath[MAX_PATH];
   char tempFileName[MAX_PATH];
@@ -193,6 +197,20 @@ void changeBrightness() {
   DeleteFile(tempFileName);
 }
 
+/**
+ * Check if the display state changed to on (0x1)
+ *
+ * @param  {WPARAM} wParam : 
+ * @param  {LPARAM} lParam : 
+ * @return {bool}          : 
+ */
+bool isDisplayOn(WPARAM wParam, LPARAM lParam) {
+  return wParam == PBT_POWERSETTINGCHANGE &&
+         ((PPOWERBROADCAST_SETTING)lParam)->PowerSetting ==
+             GUID_CONSOLE_DISPLAY_STATE &&
+         ((PPOWERBROADCAST_SETTING)lParam)->Data[0] == 0x1;
+}
+
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
                             LPARAM lParam) {
   if (uMsg == WM_USER + 1) {
@@ -202,11 +220,11 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     } else if (LOWORD(lParam) == WM_RBUTTONUP)
       showContextMenu(hwnd);
 
-  } 
-  else if (uMsg == WM_POWERBROADCAST &&
+  } else if (uMsg == WM_POWERBROADCAST &&
              (wParam == PBT_APMRESUMEAUTOMATIC ||
               wParam == PBT_APMRESUMESUSPEND ||
-              wParam == PBT_APMPOWERSTATUSCHANGE))
+              wParam == PBT_APMPOWERSTATUSCHANGE ||
+              isDisplayOn(wParam, lParam)))
     changeBrightness();
 
   else if (uMsg == WM_DESTROY || (uMsg == WM_COMMAND && LOWORD(wParam) == 1002))
