@@ -14,5 +14,5 @@ FetchContent_Declare(iniparser
 FetchContent_MakeAvailable(iniparser)
 
 add_library(RCOBJ OBJECT src/resource.rc)
-add_executable(BrightnessControl WIN32 src/app.cpp $<TARGET_OBJECTS:RCOBJ>)
+add_executable(BrightnessControl WIN32 src/app.cpp src/utils.cpp $<TARGET_OBJECTS:RCOBJ>)
 target_link_libraries(BrightnessControl PRIVATE comctl32 uuid inicpp)

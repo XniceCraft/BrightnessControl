@@ -1,21 +1,30 @@
-#include <windows.h>
-#include <commctrl.h>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <fileapi.h>
 #include <fstream>
-#include <inicpp.h>
+
+#include <windows.h>
+#include <commctrl.h>
+#include <fileapi.h>
 #include <minwindef.h>
 #include <powrprof.h>
 
+#include <inicpp.h>
+
+#include "utils.hpp"
+
 #define APP_ICON_RESOURCE 100
+#define DEBOUNCE_DURATION 1000
 
 NOTIFYICONDATA nid;
 HWND hSliderWindow, hSlider, hTextLabel;
 HHOOK hMouseHook;
 HPOWERNOTIFY hPowerNotify;
+
 bool isVisible = false;
 std::string rwPath;
+uint64_t lastChangeBrightness = getMillis();
+int lastBrightness = 50;
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK SliderWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
@@ -159,6 +168,11 @@ void updateText() {
  * Change brightness by sending data to RWEveryting
  */
 void changeBrightness() {
+  int brightness = SendMessage(hSlider, TBM_GETPOS, 0, 0);
+  uint64_t currentMillis = getMillis();
+  if (lastBrightness == brightness || currentMillis - lastChangeBrightness < DEBOUNCE_DURATION)
+    return;
+
   char tempDirPath[MAX_PATH];
   char tempFileName[MAX_PATH];
 
@@ -169,7 +183,6 @@ void changeBrightness() {
     return;
 
   char buffer[20];
-  int brightness = SendMessage(hSlider, TBM_GETPOS, 0, 0);
   std::snprintf(buffer, 20, "mul(Local4, %d)", brightness);
 
   std::ofstream file(tempFileName);
@@ -195,14 +208,15 @@ void changeBrightness() {
   }
 
   DeleteFile(tempFileName);
+  lastChangeBrightness = getMillis();
 }
 
 /**
  * Check if the display state changed to on (0x1)
  *
- * @param  {WPARAM} wParam : 
- * @param  {LPARAM} lParam : 
- * @return {bool}          : 
+ * @param  {WPARAM} wParam :
+ * @param  {LPARAM} lParam :
+ * @return {bool}          :
  */
 bool isDisplayOn(WPARAM wParam, LPARAM lParam) {
   return wParam == PBT_POWERSETTINGCHANGE &&
@@ -220,11 +234,10 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
     } else if (LOWORD(lParam) == WM_RBUTTONUP)
       showContextMenu(hwnd);
 
-  } else if (uMsg == WM_POWERBROADCAST &&
-             (wParam == PBT_APMRESUMEAUTOMATIC ||
-              wParam == PBT_APMRESUMESUSPEND ||
-              wParam == PBT_APMPOWERSTATUSCHANGE ||
-              isDisplayOn(wParam, lParam)))
+  } else if (uMsg == WM_POWERBROADCAST && (wParam == PBT_APMRESUMEAUTOMATIC ||
+                                           wParam == PBT_APMRESUMESUSPEND ||
+                                           wParam == PBT_APMPOWERSTATUSCHANGE ||
+                                           isDisplayOn(wParam, lParam)))
     changeBrightness();
 
   else if (uMsg == WM_DESTROY || (uMsg == WM_COMMAND && LOWORD(wParam) == 1002))
