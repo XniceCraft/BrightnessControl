@@ -193,7 +193,7 @@ void changeBrightness() {
   file << "\n> Local5 = div(Local5, 100)\n> Local6 = shl(Local4, 16)\n> Local6 "
           "= or(Local6, Local5)\n> w32 Local2 Local6\n> RwExit\n";
   file.close();
-  std::string cmd = rwPath + " /Command=" + tempFileName;
+  std::string cmd = rwPath + " /Nologo /Min /Command=" + tempFileName;
 
   STARTUPINFO startupInfo = {sizeof(STARTUPINFO)};
   startupInfo.dwFlags = STARTF_USESHOWWINDOW;
