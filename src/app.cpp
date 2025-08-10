@@ -2,6 +2,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <thread>
+#include <functional>
 
 #include <windows.h>
 #include <commctrl.h>
@@ -30,6 +32,19 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK SliderWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
                                   LPARAM lParam);
 LRESULT CALLBACK MouseProc(int nCode, WPARAM wParam, LPARAM lParam);
+
+void WaitForProcessAndNotify(HANDLE hProcess,
+                             std::function<void(DWORD)> onExit = nullptr) {
+  std::thread([hProcess, onExit]() {
+    WaitForSingleObject(hProcess, INFINITE);
+    DWORD exitCode = 0;
+    GetExitCodeProcess(hProcess, &exitCode);
+    if (onExit)
+      onExit(exitCode);
+
+    CloseHandle(hProcess);
+  }).detach();
+}
 
 bool IsExecutable(const std::string &path) {
   DWORD fileAttributes = GetFileAttributes(path.c_str());
@@ -170,7 +185,8 @@ void updateText() {
 void changeBrightness() {
   int brightness = SendMessage(hSlider, TBM_GETPOS, 0, 0);
   uint64_t currentMillis = getMillis();
-  if (lastBrightness == brightness || currentMillis - lastChangeBrightness < DEBOUNCE_DURATION)
+  if (lastBrightness == brightness ||
+      currentMillis - lastChangeBrightness < DEBOUNCE_DURATION)
     return;
 
   char tempDirPath[MAX_PATH];
@@ -202,12 +218,12 @@ void changeBrightness() {
   PROCESS_INFORMATION process;
   if (CreateProcessA(nullptr, const_cast<char *>(cmd.c_str()), nullptr, nullptr,
                      FALSE, 0, nullptr, nullptr, &startupInfo, &process)) {
-    WaitForSingleObject(process.hProcess, INFINITE);
-    CloseHandle(process.hProcess);
+    WaitForProcessAndNotify(process.hProcess, [tempFileName](DWORD exitCode) {
+      DeleteFile(tempFileName);
+    });
     CloseHandle(process.hThread);
   }
 
-  DeleteFile(tempFileName);
   lastChangeBrightness = getMillis();
 }
 
